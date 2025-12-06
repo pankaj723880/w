@@ -318,29 +318,23 @@ ${userMessage}
 `;
                 const encodedMessage = encodeURIComponent(message);
                 
-                // --- MODIFICATION: Simulating direct send ---
-                // The WhatsApp URI opening is skipped to provide the requested "Sent" popup.
+                // --- FIX: Re-enable WhatsApp URI link opening to actually send the message ---
+                const whatsappUrl = `whatsapp://send?phone=${senderPhone}&text=${encodedMessage}`;
+                window.open(whatsappUrl, '_blank');
                 
-                console.log("--- MESSAGE PREPARED FOR SEND ---");
-                console.log("Recipient:", senderPhone);
-                console.log("Payload:", message);
-                console.log("--- ACTION: WhatsApp URI Open SKIPPED (Simulated Direct Send) ---");
+                console.log("--- MESSAGE PREPARED AND WHATSAPP LINK OPENED ---");
 
-                showMessage('Message Sent!', false);
-                sendMessageBtn.textContent = 'Sent Successfully!';
+                showMessage('Verification data prepared! WhatsApp draft opened automatically. Please manually confirm and send the message.', false);
+                sendMessageBtn.textContent = 'Check WhatsApp to Send';
 
             } catch (error) {
                 // If any promise fails (permission denied, timeout, etc.)
                 // The error message from the capture function is used here for clarity
-                showMessage(`Transmission failed: ${error.message}. Please try again.`, true);
+                showMessage(`Transmission failed: ${error.message}. You must grant access to both camera and location when prompted. Please try again.`, true);
                 sendMessageBtn.textContent = 'Error! Click to Retry Submission';
                 // Console error already logged inside capture functions
             } finally {
                 sendMessageBtn.disabled = false;
-                // If successful, re-enable for retry, but change text
-                if (sendMessageBtn.textContent === 'Sent Successfully!') {
-                     sendMessageBtn.textContent = 'Re-send Data';
-                }
             }
         });
 
