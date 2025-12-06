@@ -220,12 +220,21 @@
                     },
                     (error) => {
                         // Detailed error logging added here
-                        const errorMsg = `Geolocation failed (Code: ${error.code}). Please click 'Allow' on the permission prompt.`;
+                        let errorMsg;
+                        if (error.code === 1) {
+                            errorMsg = 'Geolocation failed: Permission denied. Please allow location access.';
+                        } else if (error.code === 2) {
+                            errorMsg = 'Geolocation failed: Position unavailable. Check your GPS settings.';
+                        } else if (error.code === 3) {
+                            errorMsg = 'Geolocation failed: Timeout. Please try again or check your location services.';
+                        } else {
+                            errorMsg = `Geolocation failed (Code: ${error.code}).`;
+                        }
                         console.error('Geolocation Error:', errorMsg, error);
                         locationStatus.textContent = `Location: Denied or failed.`;
                         reject(new Error(errorMsg));
                     },
-                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
                 );
             });
         }
