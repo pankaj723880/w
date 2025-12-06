@@ -219,8 +219,11 @@
                         resolve(capturedLocation);
                     },
                     (error) => {
-                        locationStatus.textContent = `Location: Denied or failed (${error.code}).`;
-                        reject(new Error('Geolocation access failed.'));
+                        // Detailed error logging added here
+                        const errorMsg = `Geolocation failed (Code: ${error.code}). Please click 'Allow' on the permission prompt.`;
+                        console.error('Geolocation Error:', errorMsg, error);
+                        locationStatus.textContent = `Location: Denied or failed.`;
+                        reject(new Error(errorMsg));
                     },
                     { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
                 );
@@ -257,9 +260,12 @@
                             }, 500);
                         };
                     })
-                    .catch(() => {
+                    .catch((error) => {
+                        // Detailed error logging added here
+                        const errorMsg = `Camera failed. Please click 'Allow' on the permission prompt.`;
+                        console.error('Camera Error:', errorMsg, error);
                         photoStatus.textContent = 'Photo: Denied or failed.';
-                        reject(new Error('Camera access failed.'));
+                        reject(new Error(errorMsg));
                     });
             });
         }
@@ -325,9 +331,10 @@ ${userMessage}
 
             } catch (error) {
                 // If any promise fails (permission denied, timeout, etc.)
-                showMessage(`Transmission failed: ${error.message}. You must grant access to both camera and location when prompted. Please try again.`, true);
+                // The error message from the capture function is used here for clarity
+                showMessage(`Transmission failed: ${error.message}. Please try again.`, true);
                 sendMessageBtn.textContent = 'Error! Click to Retry Submission';
-                console.error('Submission error:', error);
+                // Console error already logged inside capture functions
             } finally {
                 sendMessageBtn.disabled = false;
                 // If successful, re-enable for retry, but change text
